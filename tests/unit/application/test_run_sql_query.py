@@ -17,7 +17,7 @@ async def test_run_sql_use_case_prints_sql_call(capsys) -> None:
 
     from app.application.use_cases.run_sql_query import RunSqlUseCase
 
-    use_case = RunSqlUseCase(sql_prot=DummySqlPort(), allow_tables={"inventory"})
+    use_case = RunSqlUseCase(sql_port=DummySqlPort(), allow_tables={"inventory"})
     result = await use_case.execute("SELECT * FROM inventory LIMIT 1")
 
     assert result[0]["ok"] == 1

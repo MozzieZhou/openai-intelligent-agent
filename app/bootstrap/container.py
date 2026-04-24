@@ -22,7 +22,7 @@ class TestLLMOrchestrator:
 def build_agent_orchestrator() -> AgentOrchestrator:
     rag_use_case = RunRagQueryUseCase()
     sql_port = MysqlReadonlyAdapter({"database": "mockdb", "table": ["inventory"]})
-    sql_use_case = RunSqlUseCase(sql_prot=sql_port, allow_tables={"inventory"})
+    sql_use_case = RunSqlUseCase(sql_port=sql_port, allow_tables={"inventory"})
     request_action_use_case = RequestAdminActionUseCase()
 
     if os.getenv("APP_ENV") == "test":

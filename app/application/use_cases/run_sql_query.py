@@ -1,11 +1,11 @@
 
 from app.domain.policies.sql_policy import SqlPolicy
-from app.domain.ports.sql_prot import SqlPort
+from app.domain.ports.sql_port import SqlPort
 
 
 class RunSqlUseCase:
-    def __init__(self, sql_prot: SqlPort, allow_tables:set[str]):
-        self.sql_prot = sql_prot
+    def __init__(self, sql_port: SqlPort, allow_tables:set[str]):
+        self.sql_port = sql_port
         self.policy = SqlPolicy(allow_tables)
 
     async def execute(self, sql:str) -> list[dict]:
@@ -16,4 +16,4 @@ class RunSqlUseCase:
         if not valid:
             return [{"error": msg}]
         print(f"SQL 正在调用: {sql}")
-        return await self.sql_prot.query(sql)
+        return await self.sql_port.query(sql)
