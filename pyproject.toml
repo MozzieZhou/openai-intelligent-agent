@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "openai-intelligent-agent"
+version = "0.1.0"
+description = "Intelligent customer service agent with OpenAI Agents SDK and RAG/SQL orchestration"
+authors = ["mozzie <mozzie@example.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+openai-agents = ">=0.2.0"
+fastapi = ">=0.115.0"
+uvicorn = ">=0.30.0"
+pydantic = ">=2.8.0"
+python-dotenv = ">=1.0.1"
+httpx = ">=0.27.0"
+sqlalchemy = ">=2.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.2.0"
+pytest-asyncio = ">=0.23.0"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"
