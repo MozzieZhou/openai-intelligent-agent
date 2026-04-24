@@ -19,5 +19,6 @@ class SqlPolicy:
         
         tables = re.findall(r"(?:from|join)\s+([a-zA-Z_][a-zA-Z0-9_]*)", s)
         if any(t not in self.allwod_tables for t in tables):
-            return False, f"存在未授权表: {tables - self.allowed_tables}"
+            unauthorized = sorted(set(tables) - self.allwod_tables)
+            return False, f"存在未授权表: {unauthorized}"
         return True, ""

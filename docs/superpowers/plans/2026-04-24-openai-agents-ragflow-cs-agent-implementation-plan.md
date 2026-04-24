@@ -514,22 +514,56 @@ Expected: FAIL，编排器未实现。
 
 ```python
 # app/application/services/agent_orchestrator.py
+from agents import Agent, Runner
+
+
 class AgentOrchestrator:
     def __init__(self, rag_use_case, sql_use_case, request_action_use_case):
         self.rag_use_case = rag_use_case
         self.sql_use_case = sql_use_case
         self.request_action_use_case = request_action_use_case
 
+        async def rag_tool(query: str) -> str:
+            docs = await self.rag_use_case.execute(query)
+            return str(docs)
+
+        async def sql_tool(query: str) -> str:
+            rows = await self.sql_use_case.execute(query)
+            return str(rows)
+
+        async def approval_tool(action_name: str, payload: dict) -> str:
+            ticket = await self.request_action_use_case.execute(action_name, payload)
+            return f"已创建审批单 {ticket.ticket_id}"
+
+        self.rag_agent = Agent(
+            name="RAGAgent",
+            instructions="处理制度/规则类问题，优先调用 rag_tool 并基于结果回答。",
+            tools=[rag_tool],
+        )
+        self.sql_agent = Agent(
+            name="SQLAgent",
+            instructions="处理数据查询类问题，必须先调用 sql_tool。",
+            tools=[sql_tool],
+        )
+        self.action_agent = Agent(
+            name="ActionAgent",
+            instructions="处理后台操作请求，必须调用 approval_tool 创建审批单。",
+            tools=[approval_tool],
+        )
+        self.root_agent = Agent(
+            name="BusinessOrchestrator",
+            instructions=(
+                "你是总控编排 Agent：\n"
+                "1) 制度/流程/规则 -> 转交 RAGAgent\n"
+                "2) SQL/指标查询 -> 转交 SQLAgent\n"
+                "3) 退款/后台操作 -> 转交 ActionAgent"
+            ),
+            handoffs=[self.rag_agent, self.sql_agent, self.action_agent],
+        )
+
     async def handle(self, user_query: str) -> dict:
-        q = user_query.lower()
-        if "查询" in q or "库存" in q or "销量" in q:
-            rows = await self.sql_use_case.execute("SELECT * FROM inventory LIMIT 20")
-            return {"route": "sql", "answer": f"查询结果 {rows}"}
-        if "退款" in q or "操作" in q:
-            ticket = await self.request_action_use_case.execute("generic_action", {"query": user_query})
-            return {"route": "approval", "answer": f"已创建审批单 {ticket.ticket_id}"}
-        docs = await self.rag_use_case.execute(user_query)
-        return {"route": "rag", "answer": f"依据知识库: {docs}"}
+        result = await Runner.run(self.root_agent, user_query)
+        return {"answer": result.final_output}
 ```
 
 - [ ] **Step 4: 运行集成测试确认通过**
