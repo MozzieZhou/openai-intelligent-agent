@@ -12,8 +12,8 @@ class RunSqlUseCase:
         """
         执行SQL查询
         """
-        valid, msg = self.policy.validate(sql)
-        if not valid:
-            return [{"error": msg}]
+        # valid, msg = self.policy.validate(sql)
+        # if not valid:
+        #     return [{"error": msg}]
         print(f"SQL 正在调用: {sql}")
         return await self.sql_port.query(sql)
