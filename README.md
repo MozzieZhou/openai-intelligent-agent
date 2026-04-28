@@ -28,6 +28,7 @@
 - FastAPI
 - OpenAI Agents SDK
 - LiteLLM / OpenRouter
+- Langfuse
 - Pydantic
 - Pytest
 
@@ -65,10 +66,19 @@ LLM_BASE_URL="https://openrouter.ai/api/v1"
 DEFAULT_MODEL="stepfun/step-3.5-flash"
 ```
 
+如果需要把 LiteLLM / OpenAI Agents 的调用链路上报到 Langfuse Tracing，额外配置：
+
+```env
+LANGFUSE_PUBLIC_KEY="your-langfuse-public-key"
+LANGFUSE_SECRET_KEY="your-langfuse-secret-key"
+LANGFUSE_BASE_URL="https://us.cloud.langfuse.com"
+```
+
 说明：
 
 - 项目启动时会先 `load_dotenv()`
 - `DEFAULT_MODEL` 会自动转换成 `litellm/openrouter/...` 前缀
+- `LANGFUSE_BASE_URL` 会在启动时自动映射到 `LANGFUSE_HOST` 和 `LANGFUSE_OTEL_HOST`
 - `.env` 已被 `.gitignore` 忽略，不会自动提交
 
 ## 启动方式
@@ -107,6 +117,8 @@ curl -X POST http://127.0.0.1:8000/api/chat \
 SQL 正在调用: SELECT * FROM inventory LIMIT 20
 执行SQL查询数据库: mockdb，表：['inventory']，SQL语句: SELECT * FROM inventory LIMIT 20
 ```
+
+如果已配置 Langfuse，调用 `/api/chat` 后还应在 Langfuse 的 `Tracing` 页面看到对应 trace。修改 `.env` 或 tracing 配置后，需要重启 FastAPI 进程。
 
 ## 测试
 
@@ -157,6 +169,13 @@ poetry run pytest tests/integration/test_api_endpoints.py -q
   - `ActionAgent`
   - `BusinessOrchestrator`
 
+### 4.1 Langfuse Tracing 配置
+
+- 项目当前使用 `litellm.callbacks = ["langfuse_otel"]` 上报 Langfuse
+- 不再使用旧式 `litellm.success_callback = ["langfuse"]`
+- Langfuse 版本固定在 `>=2.60.10,<3.0.0`，见 `pyproject.toml`
+- 相关初始化代码位于 `app/infrastructure/llm/openai_agents_adapter.py`
+
 ### 5. SQL 执行层
 
 - `app/application/use_cases/run_sql_query.py`
@@ -179,6 +198,66 @@ poetry run pytest tests/integration/test_api_endpoints.py -q
 - 后台操作审批流与执行回传
 - 审计日志与链路追踪
 - 更多集成测试与 E2E 测试
+
+## Langfuse 踩坑记录
+
+### 1. `langfuse` 版本不能随便升
+
+项目当前 `litellm` 版本为 `1.82.6`，实际验证可兼容的 `langfuse` 版本范围是：
+
+```toml
+langfuse = ">=2.60.10,<3.0.0"
+```
+
+踩过的坑：
+
+- `langfuse 4.x` 会报：
+
+```text
+AttributeError: module 'langfuse' has no attribute 'version'
+```
+
+- `langfuse 3.x` 虽然有 `langfuse.version.__version__`，但仍可能报：
+
+```text
+TypeError: Langfuse.__init__() got an unexpected keyword argument 'sdk_integration'
+```
+
+根因是当前 `litellm` 的 Langfuse 集成代码同时依赖：
+
+- `langfuse.version.__version__`
+- `Langfuse.__init__(..., sdk_integration=...)`
+
+因此不要升级到 `3.x` 或 `4.x`，除非同时升级并验证 `litellm`。
+
+### 2. Tracing 控制台为空，不一定是 key 错
+
+如果 Langfuse 后台没有任何 trace，优先检查下面几项：
+
+- 是否使用了 `litellm.callbacks = ["langfuse_otel"]`
+- 是否仍在使用旧式 `litellm.success_callback = ["langfuse"]`
+- 是否配置了 `LANGFUSE_BASE_URL`，并在进程启动后映射成了 `LANGFUSE_OTEL_HOST`
+- 修改 `.env` 后是否重启了 FastAPI 进程
+- 请求是否真的走到了 LiteLLM 模型调用，而不是测试 stub / mock
+
+### 3. 推荐环境变量
+
+推荐至少配置以下变量：
+
+```env
+LANGFUSE_PUBLIC_KEY="..."
+LANGFUSE_SECRET_KEY="..."
+LANGFUSE_BASE_URL="https://us.cloud.langfuse.com"
+```
+
+项目启动时会自动把：
+
+- `LANGFUSE_BASE_URL -> LANGFUSE_HOST`
+- `LANGFUSE_BASE_URL -> LANGFUSE_OTEL_HOST`
+
+### 4. 不要把真实密钥提交到仓库或发到聊天记录
+
+如果 `LANGFUSE_SECRET_KEY` 已经暴露，应该立即在 Langfuse 后台 rotate。
 
 ## 相关文档
 
