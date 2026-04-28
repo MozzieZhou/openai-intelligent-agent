@@ -1,12 +1,24 @@
 import os
-from datetime import datetime
 
 from agents import Agent, Runner, function_tool, set_tracing_disabled
 from dotenv import load_dotenv
+import litellm
 
 load_dotenv()
 
-set_tracing_disabled(False)
+if not os.getenv("LANGFUSE_HOST") and os.getenv("LANGFUSE_BASE_URL"):
+    os.environ["LANGFUSE_HOST"] = os.environ["LANGFUSE_BASE_URL"]
+
+if not os.getenv("LANGFUSE_OTEL_HOST") and os.getenv("LANGFUSE_BASE_URL"):
+    os.environ["LANGFUSE_OTEL_HOST"] = os.environ["LANGFUSE_BASE_URL"]
+
+if "langfuse" in litellm.success_callback:
+    litellm.success_callback.remove("langfuse")
+
+if "langfuse_otel" not in litellm.callbacks:
+    litellm.callbacks.append("langfuse_otel")
+
+set_tracing_disabled(True)
 
 OPENROUTER_API_KEY = os.getenv("LLM_API_KEY")
 OPENROUTER_BASE_URL = os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1")
@@ -89,8 +101,6 @@ class OpenAIAgentsLLMOrchestrator:
         )
 
     async def handle(self, user_query: str) -> str:
-        _debug_print("RootAgent.input", user_query)
         result = await Runner.run(self.root_agent, user_query)
         final_output = str(result.final_output)
-        _debug_print("RootAgent.output", final_output)
         return final_output
